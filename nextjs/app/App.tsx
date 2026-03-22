@@ -26,15 +26,19 @@ export default function App() {
           <WalletConnect />
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-start px-4 py-10">
+        <main className="flex-1 flex flex-col items-center justify-start px-4 pt-12 pb-10">
           <div className="w-full max-w-md">
-            <div className="text-center mb-8">
-              <p className="text-sm text-bark-light/70 tracking-wide uppercase font-semibold">
-                Cardano · Pyth · Aiken
+            <div className="text-center mb-10">
+              <p className="text-[0.7rem] text-bark-light/50 tracking-[0.25em] uppercase font-semibold animate-fade-in">
+                Cardano &middot; Pyth &middot; Aiken
               </p>
-              <h1 className="font-display text-4xl text-bark mt-1 leading-tight">
-                Ahorra con reglas.<br />
-                <span className="text-clay">Sin excepciones.</span>
+              <h1 className="font-display text-bark mt-3 leading-[1.12]">
+                <span className="block text-[2.75rem] sm:text-5xl animate-slide-up-d1">
+                  Save with rules.
+                </span>
+                <span className="block text-[2.75rem] sm:text-5xl text-clay animate-slide-up-d2">
+                  No exceptions.
+                </span>
               </h1>
             </div>
             <VaultDashboard />
@@ -42,7 +46,7 @@ export default function App() {
         </main>
 
         <footer className="text-center py-6 text-xs text-bark-light/50 border-t border-clay-pale/40">
-          Desplegado en Cardano testnet (preprod) · Precios vía{" "}
+          Running on Cardano preprod · Prices via{" "}
           <a
             href="https://pyth.network"
             target="_blank"

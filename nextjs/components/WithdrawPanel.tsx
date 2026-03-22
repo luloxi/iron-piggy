@@ -40,7 +40,7 @@ export default function WithdrawPanel({ vaultUtxo, datum, goalMet, onWithdrawn }
   if (!goalMet) {
     return (
       <div className="rounded-lg bg-cream border border-clay-pale px-4 py-3 text-sm text-bark-light text-center">
-        La bóveda se desbloquea cuando el valor alcance la meta.
+        Your vault unlocks when its value reaches the goal. Keep going.
       </div>
     );
   }
@@ -48,7 +48,7 @@ export default function WithdrawPanel({ vaultUtxo, datum, goalMet, onWithdrawn }
   return (
     <div className="space-y-3">
       <div className="rounded-lg bg-sage-pale border border-sage/20 px-4 py-3 text-sm text-sage font-semibold text-center">
-        🎉 ¡Meta alcanzada! Puedes retirar.
+        🎉 Goal reached! Your funds are ready.
       </div>
 
       {status === "err" && (
@@ -56,14 +56,14 @@ export default function WithdrawPanel({ vaultUtxo, datum, goalMet, onWithdrawn }
       )}
       {status === "ok" && (
         <div className="bg-sage-pale rounded-lg px-3 py-2 text-sage text-sm">
-          ✓ Retiro exitoso —{" "}
+          ✓ Withdrawal complete —{" "}
           <a
             href={`https://preprod.cardanoscan.io/transaction/${txHash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="underline font-semibold"
           >
-            ver tx
+            view tx
           </a>
         </div>
       )}
@@ -73,7 +73,7 @@ export default function WithdrawPanel({ vaultUtxo, datum, goalMet, onWithdrawn }
         disabled={status === "loading"}
         className="w-full bg-sage hover:bg-sage/80 disabled:opacity-60 transition-colors text-white font-semibold rounded-lg py-2.5 text-sm"
       >
-        {status === "loading" ? "Retirando…" : "Retirar fondos"}
+        {status === "loading" ? "Processing…" : "Withdraw all"}
       </button>
     </div>
   );

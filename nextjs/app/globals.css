@@ -20,3 +20,52 @@ body {
 mesh-wallet-button, [data-mesh-wallet] {
   font-family: var(--font-body) !important;
 }
+
+/* CTA glow ring */
+.cta-glow {
+  position: relative;
+  z-index: 0;
+}
+.cta-glow::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #C25B4E, #E8705A, #C25B4E);
+  opacity: 0;
+  z-index: -1;
+  animation: ctaRingPulse 2.2s ease-in-out infinite;
+}
+@keyframes ctaRingPulse {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.04); }
+}
+
+/* CTA shimmer sweep */
+.cta-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255,255,255,0.18) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmerSweep 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+@keyframes shimmerSweep {
+  0%   { background-position: 200% 0; }
+  60%, 100% { background-position: -200% 0; }
+}
+
+/* Larger CTA wallet button override */
+.cta-glow button {
+  font-size: 1rem !important;
+  padding: 0.7rem 2rem !important;
+  border-radius: 12px !important;
+}
