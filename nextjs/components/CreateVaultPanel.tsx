@@ -31,7 +31,7 @@ export default function CreateVaultPanel({ onCreated }: Props) {
       const hash = await createVault(wallet, goal, ada);
       setTxHash(hash);
       setStatus("ok");
-      setTimeout(onCreated, 3000);
+      onCreated();
     } catch (e: unknown) {
       setErrMsg(e instanceof Error ? e.message : String(e));
       setStatus("err");

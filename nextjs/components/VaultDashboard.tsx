@@ -162,6 +162,16 @@ export default function VaultDashboard() {
     }
   }, [wallet, connected]);
 
+  const handleVaultCreated = useCallback(() => {
+    fetchState();
+    const retryDelaysMs = [2_000, 5_000, 10_000];
+    for (const delayMs of retryDelaysMs) {
+      setTimeout(() => {
+        fetchState();
+      }, delayMs);
+    }
+  }, [fetchState]);
+
   useEffect(() => {
     fetchState();
   }, [fetchState]);
@@ -238,7 +248,7 @@ export default function VaultDashboard() {
 
       {/* No vault */}
       {!vaultUtxo && !loading && (
-        <CreateVaultPanel onCreated={fetchState} />
+        <CreateVaultPanel onCreated={handleVaultCreated} />
       )}
 
       {/* Vault found */}
