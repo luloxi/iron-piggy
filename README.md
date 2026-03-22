@@ -4,7 +4,7 @@
 
 ![Iron Pig — PythFlow pitch (still from video)](public/iron-pig-pitch-poster.jpg)
 
-*Still from [`IronPig by PythFlow PUBLI-PITCH v1.mp4`](public/IronPig%20by%20PythFlow%20PUBLI-PITCH%20v1.mp4).*
+**PythFlow pitch:** [Watch on YouTube](https://www.youtube.com/watch?v=j5q2i8WTVcg) · [local copy (MP4)](public/IronPig%20by%20PythFlow%20PUBLI-PITCH%20v1.mp4)
 
 **PythFlow litepaper (English, PDF):** [`PythFLOW_Litepaper_EN.pdf`](public/PythFLOW_Litepaper_EN.pdf)
 
