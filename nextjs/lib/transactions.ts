@@ -21,6 +21,7 @@ import {
   PYTH_WITHDRAW_SCRIPT_HASH,
   pythRewardAddress,
   buildPythRedeemer,
+  validatePythWithdrawConfig,
 } from "./pyth";
 
 function getRequiredCollateralUtxo(collateral: UTxO[]): UTxO {
@@ -39,6 +40,22 @@ async function signTxWithFallback(wallet: IWallet, unsignedTx: string): Promise<
   } catch {
     return await wallet.signTx(unsignedTx);
   }
+}
+
+async function getReferenceScriptSize(
+  provider: ReturnType<typeof getProvider>,
+  txHash: string,
+  txIndex: number,
+): Promise<string> {
+  const utxos = await provider.fetchUTxOs(txHash, txIndex);
+  const ref = utxos.find((utxo) => utxo.input.outputIndex === txIndex);
+  const scriptRef = ref?.output.scriptRef;
+  if (!scriptRef) {
+    throw new Error(
+      `Missing reference script bytes at ${txHash}#${txIndex}. Check Pyth script-ref env values.`,
+    );
+  }
+  return (scriptRef.length / 2).toString();
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +153,13 @@ export async function withdraw(
   existingDatum: { alternative: number; fields: unknown[] },
   signedUpdateHex: string,
 ): Promise<string> {
+  const missingConfig = validatePythWithdrawConfig();
+  if (missingConfig.length > 0) {
+    throw new Error(
+      `Pyth withdraw config missing/invalid in .env: ${missingConfig.join(", ")}`,
+    );
+  }
+
   const provider = getProvider();
   const addresses = await wallet.getUsedAddresses();
   const changeAddress = addresses[0];
@@ -145,14 +169,19 @@ export async function withdraw(
 
   const pythReward = pythRewardAddress(0);
   const pythRedeemer = buildPythRedeemer(signedUpdateHex);
+  const pythRefScriptSize = await getReferenceScriptSize(
+    provider,
+    PYTH_SCRIPT_REF_TX_HASH,
+    PYTH_SCRIPT_REF_TX_INDEX,
+  );
 
   const nowMs = Date.now();
   const slotOffset = 4_924_800;
   const nowSlot = Math.floor((nowMs / 1000) - 1_596_491_091) + slotOffset;
 
   const txBuilder = new MeshTxBuilder({ fetcher: provider, submitter: provider });
-  const unsignedTx = await txBuilder
-    // Vault spend
+
+  txBuilder
     .spendingPlutusScriptV3()
     .txIn(
       vaultUtxo.input.txHash,
@@ -162,22 +191,26 @@ export async function withdraw(
     )
     .txInInlineDatumPresent()
     .txInRedeemerValue(REDEEMER_WITHDRAW, "Mesh", { mem: 14_000_000, steps: 5_000_000_000 })
-    .txInScript(COMPILED_SCRIPT)
-    // Pyth state as read-only reference
-    .readOnlyTxInReference(PYTH_STATE_TX_HASH, PYTH_STATE_TX_INDEX)
-    // Pyth 0-withdrawal with signed update as redeemer
+    .txInScript(COMPILED_SCRIPT);
+
+  const sameRefUtxo =
+    PYTH_STATE_TX_HASH === PYTH_SCRIPT_REF_TX_HASH &&
+    PYTH_STATE_TX_INDEX === PYTH_SCRIPT_REF_TX_INDEX;
+  if (!sameRefUtxo) {
+    txBuilder.readOnlyTxInReference(PYTH_STATE_TX_HASH, PYTH_STATE_TX_INDEX);
+  }
+
+  const unsignedTx = await txBuilder
     .withdrawalPlutusScriptV3()
     .withdrawal(pythReward, "0")
     .withdrawalTxInReference(
       PYTH_SCRIPT_REF_TX_HASH,
       PYTH_SCRIPT_REF_TX_INDEX,
-      undefined,
+      pythRefScriptSize,
       PYTH_WITHDRAW_SCRIPT_HASH,
     )
     .withdrawalRedeemerValue(pythRedeemer, "Mesh", { mem: 14_000_000, steps: 10_000_000_000 })
-    // Vault value to owner
     .txOut(changeAddress, vaultUtxo.output.amount)
-    // Validity window (~2 min)
     .invalidBefore(nowSlot - 60)
     .invalidHereafter(nowSlot + 60)
     .changeAddress(changeAddress)

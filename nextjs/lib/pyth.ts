@@ -46,6 +46,32 @@ export function pythRewardAddress(network: 0 | 1 = 0): string {
   return serializeRewardAddress(PYTH_WITHDRAW_SCRIPT_HASH, true, network);
 }
 
+function isHexOfLength(value: string, hexLength: number): boolean {
+  return new RegExp(`^[0-9a-fA-F]{${hexLength}}$`).test(value);
+}
+
+export function validatePythWithdrawConfig(): string[] {
+  const missingOrInvalid: string[] = [];
+
+  if (!isHexOfLength(PYTH_WITHDRAW_SCRIPT_HASH, 56)) {
+    missingOrInvalid.push("NEXT_PUBLIC_PYTH_WITHDRAW_SCRIPT_HASH (56 hex chars)");
+  }
+  if (!isHexOfLength(PYTH_STATE_TX_HASH, 64)) {
+    missingOrInvalid.push("NEXT_PUBLIC_PYTH_STATE_TX_HASH (64 hex chars)");
+  }
+  if (!isHexOfLength(PYTH_SCRIPT_REF_TX_HASH, 64)) {
+    missingOrInvalid.push("NEXT_PUBLIC_PYTH_SCRIPT_REF_TX_HASH (64 hex chars)");
+  }
+  if (!Number.isInteger(PYTH_STATE_TX_INDEX) || PYTH_STATE_TX_INDEX < 0) {
+    missingOrInvalid.push("NEXT_PUBLIC_PYTH_STATE_TX_INDEX (non-negative integer)");
+  }
+  if (!Number.isInteger(PYTH_SCRIPT_REF_TX_INDEX) || PYTH_SCRIPT_REF_TX_INDEX < 0) {
+    missingOrInvalid.push("NEXT_PUBLIC_PYTH_SCRIPT_REF_TX_INDEX (non-negative integer)");
+  }
+
+  return missingOrInvalid;
+}
+
 // ---------------------------------------------------------------------------
 // Fetch signed update from Pyth Lazer (REST one-shot via SDK).
 // Returns the raw hex string to be used as the withdrawal redeemer.
@@ -104,11 +130,12 @@ export async function fetchAdaUsdPriceFromPyth(): Promise<number> {
 
 // ---------------------------------------------------------------------------
 // Build Mesh-compatible redeemer for the Pyth 0-withdrawal.
-// The on-chain contract expects List<ByteArray> → Mesh `{ list: [...] }`.
+// The on-chain contract expects List<ByteArray>.
+// Mesh serializer in this project maps:
+// - string => ByteArray
+// - array  => List
 // ---------------------------------------------------------------------------
 
 export function buildPythRedeemer(signedUpdateHex: string) {
-  return {
-    list: [{ bytes: signedUpdateHex }],
-  };
+  return [signedUpdateHex];
 }
