@@ -24,7 +24,7 @@ export default function DepositPanel({ vaultUtxo, datum, onDeposited }: Props) {
     const ada = parseFloat(adaAmount);
     if (!ada || ada <= 0) {
       setStatus("err");
-      setErrMsg("Ingresa una cantidad de ADA válida.");
+      setErrMsg("Enter a valid ADA amount.");
       return;
     }
     setStatus("loading");
@@ -45,7 +45,7 @@ export default function DepositPanel({ vaultUtxo, datum, onDeposited }: Props) {
     <div className="space-y-3">
       <div>
         <label className="block text-xs font-semibold text-bark-light uppercase tracking-widest mb-1">
-          ADA a añadir
+          Amount to add
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bark-light">₳</span>
@@ -66,14 +66,14 @@ export default function DepositPanel({ vaultUtxo, datum, onDeposited }: Props) {
       )}
       {status === "ok" && (
         <div className="bg-sage-pale rounded-lg px-3 py-2 text-sage text-sm">
-          ✓ Depositado —{" "}
+          ✓ Deposit confirmed —{" "}
           <a
             href={`https://preprod.cardanoscan.io/transaction/${txHash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="underline font-semibold"
           >
-            ver tx
+            view tx
           </a>
         </div>
       )}
@@ -83,7 +83,7 @@ export default function DepositPanel({ vaultUtxo, datum, onDeposited }: Props) {
         disabled={status === "loading"}
         className="w-full bg-clay hover:bg-clay-light disabled:opacity-60 transition-colors text-white font-semibold rounded-lg py-2.5 text-sm"
       >
-        {status === "loading" ? "Depositando…" : "Añadir ADA"}
+        {status === "loading" ? "Sending…" : "Add ADA"}
       </button>
     </div>
   );

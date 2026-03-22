@@ -8,7 +8,12 @@ function truncateAddr(addr: string) {
   return `${addr.slice(0, 10)}…${addr.slice(-6)}`;
 }
 
-export default function WalletConnect() {
+interface WalletConnectProps {
+  /** Larger animated CTA for the hero (glow + shimmer). Dropdown still works. */
+  primaryCTA?: boolean;
+}
+
+export default function WalletConnect({ primaryCTA = false }: WalletConnectProps) {
   const { connected, connecting, connect, disconnect, name, address } = useWallet();
   const wallets = useWalletList();
   const [open, setOpen] = useState(false);
@@ -49,22 +54,30 @@ export default function WalletConnect() {
           onClick={() => disconnect()}
           className="text-sm font-semibold text-bark border border-clay-pale rounded-xl px-3 py-2 hover:bg-clay-pale/60 transition-colors"
         >
-          Desconectar
+          Disconnect
         </button>
       </div>
     );
   }
 
+  const connectBtn = (
+    <button
+      type="button"
+      onClick={() => setOpen((o) => !o)}
+      disabled={connecting}
+      className="text-sm font-semibold text-white bg-clay rounded-xl px-4 py-2 shadow-sm hover:bg-clay-light transition-colors disabled:opacity-60"
+    >
+      {connecting ? "Connecting…" : "Connect Wallet"}
+    </button>
+  );
+
   return (
     <div className="relative" ref={rootRef}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        disabled={connecting}
-        className="text-sm font-semibold text-white bg-clay rounded-xl px-4 py-2 shadow-sm hover:bg-clay-light transition-colors disabled:opacity-60"
-      >
-        {connecting ? "Conectando…" : "Conectar wallet"}
-      </button>
+      {primaryCTA ? (
+        <div className="cta-glow flex justify-center animate-scale-in-d">{connectBtn}</div>
+      ) : (
+        connectBtn
+      )}
 
       {open && (
         <div
@@ -73,7 +86,7 @@ export default function WalletConnect() {
         >
           {wallets.length === 0 ? (
             <p className="px-4 py-3 text-xs text-bark-light leading-relaxed">
-              No hay wallets CIP-30 en este navegador. Instala{" "}
+              No CIP-30 wallet found. Install{" "}
               <a
                 href="https://namiwallet.io/"
                 target="_blank"
@@ -90,8 +103,8 @@ export default function WalletConnect() {
                 className="text-clay underline"
               >
                 Eternl
-              </a>{" "}
-              o{" "}
+              </a>
+              , or{" "}
               <a
                 href="https://www.lace.io/"
                 target="_blank"
