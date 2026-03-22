@@ -2,18 +2,82 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useWallet } from "@meshsdk/react";
-import { UTxO, BlockfrostProvider, deserializeAddress } from "@meshsdk/core";
+import {
+  UTxO,
+  BlockfrostProvider,
+  deserializeAddress,
+  deserializeDatum,
+} from "@meshsdk/core";
 import { getProvider } from "@/lib/provider";
-import { SCRIPT_ADDRESS, MICRO_USD_PER_USD, LOVELACE_PER_ADA } from "@/lib/contract";
-import { lovelaceToAda, estimateVaultUsd, goalMicroUsdToUsd, DEMO_ADA_PRICE_USD } from "@/lib/transactions";
+import {
+  SCRIPT_ADDRESS,
+  MICRO_USD_PER_USD,
+  LOVELACE_PER_ADA,
+} from "@/lib/contract";
+import { fetchAdaUsdPriceFromPyth } from "@/lib/pyth";
 import PiggyIcon from "./PiggyIcon";
 import WalletConnect from "./WalletConnect";
 import CreateVaultPanel from "./CreateVaultPanel";
 import DepositPanel from "./DepositPanel";
 import WithdrawPanel from "./WithdrawPanel";
 
+// ---------------------------------------------------------------------------
+// Datum helpers
+// ---------------------------------------------------------------------------
+
+interface ParsedVaultDatum {
+  goalMicroUsd: number;
+  ownerVkh: string;
+  pythPolicyId: string;
+  feedId: number;
+}
+
+function tryParseDatum(
+  plutusData: string,
+): { mesh: { alternative: number; fields: unknown[] }; parsed: ParsedVaultDatum } | null {
+  try {
+    const d = deserializeDatum<{
+      constructor: number;
+      fields: { int?: number; bytes?: string }[];
+    }>(plutusData);
+
+    if (d.constructor !== 0 || d.fields.length < 4) return null;
+
+    const goalMicroUsd = d.fields[0].int ?? 0;
+    const ownerVkh = d.fields[1].bytes ?? "";
+    const pythPolicyId = d.fields[2].bytes ?? "";
+    const feedId = d.fields[3].int ?? 0;
+
+    return {
+      mesh: {
+        alternative: 0,
+        fields: [goalMicroUsd, ownerVkh, pythPolicyId, feedId],
+      },
+      parsed: { goalMicroUsd, ownerVkh, pythPolicyId, feedId },
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ADA/USD price
+// ---------------------------------------------------------------------------
+
+async function fetchAdaPrice(): Promise<number> {
+  try {
+    return await fetchAdaUsdPriceFromPyth();
+  } catch {
+    return 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Progress bar
+// ---------------------------------------------------------------------------
+
 function ProgressBar({ value, max }: { value: number; max: number }) {
-  const pct = Math.min(100, (value / max) * 100);
+  const pct = Math.min(100, max > 0 ? (value / max) * 100 : 0);
   const met = pct >= 100;
   return (
     <div className="w-full">
@@ -32,24 +96,40 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 export default function VaultDashboard() {
   const { connected, wallet } = useWallet();
 
   const [walletAda, setWalletAda] = useState<number | null>(null);
   const [vaultUtxo, setVaultUtxo] = useState<UTxO | null>(null);
   const [datum, setDatum] = useState<{ alternative: number; fields: unknown[] } | null>(null);
+  const [parsedDatum, setParsedDatum] = useState<ParsedVaultDatum | null>(null);
+  const [adaPrice, setAdaPrice] = useState<number>(0);
   const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
   const [loading, setLoading] = useState(false);
+
+  // Fetch ADA price on mount and every 60 s
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const p = await fetchAdaPrice();
+      if (!cancelled && p > 0) setAdaPrice(p);
+    };
+    load();
+    const id = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   const fetchState = useCallback(async () => {
     if (!wallet || !connected) return;
     setLoading(true);
     try {
-      // Wallet ADA balance
       const lovelaces = await wallet.getLovelace();
       setWalletAda(parseInt(lovelaces) / LOVELACE_PER_ADA);
 
-      // Find vault UTxO owned by current wallet
       const addresses = await wallet.getUsedAddresses();
       const ownerAddr = addresses[0];
       const { pubKeyHash: ownerVkh } = deserializeAddress(ownerAddr);
@@ -57,26 +137,24 @@ export default function VaultDashboard() {
       const provider = getProvider() as BlockfrostProvider;
       const scriptUtxos = await provider.fetchAddressUTxOs(SCRIPT_ADDRESS);
 
-      const myUtxo = scriptUtxos.find((u) => {
-        if (u.output.plutusData) {
-          try {
-            const d = JSON.parse(
-              Buffer.from(u.output.plutusData, "hex").toString()
-            );
-            return d?.fields?.[1] === ownerVkh;
-          } catch {
-            // inline datum objects from Blockfrost come pre-parsed
-          }
-        }
-        if (u.output.dataHash) return false;
-        return false;
-      });
+      let foundUtxo: UTxO | null = null;
+      let foundDatum: { alternative: number; fields: unknown[] } | null = null;
+      let foundParsed: ParsedVaultDatum | null = null;
 
-      setVaultUtxo(myUtxo ?? null);
-      if (myUtxo?.output.plutusData) {
-        // Simplified datum parse for display
-        setDatum({ alternative: 0, fields: [] });
+      for (const u of scriptUtxos) {
+        if (!u.output.plutusData) continue;
+        const result = tryParseDatum(u.output.plutusData);
+        if (result && result.parsed.ownerVkh === ownerVkh) {
+          foundUtxo = u;
+          foundDatum = result.mesh;
+          foundParsed = result.parsed;
+          break;
+        }
       }
+
+      setVaultUtxo(foundUtxo);
+      setDatum(foundDatum);
+      setParsedDatum(foundParsed);
     } catch (err) {
       console.error("fetchState error:", err);
     } finally {
@@ -88,6 +166,7 @@ export default function VaultDashboard() {
     fetchState();
   }, [fetchState]);
 
+  // ---------- Not connected ----------
   if (!connected) {
     return (
       <div className="flex flex-col items-center gap-7 pt-1 pb-14 text-center sm:gap-8">
@@ -95,7 +174,6 @@ export default function VaultDashboard() {
           Cardano · Pyth · Aiken
         </p>
 
-        {/* Headline first — dominant visual anchor */}
         <div className="w-full max-w-[22rem] space-y-4 px-1 sm:max-w-xl">
           <h1 className="font-display font-semibold tracking-tight text-bark">
             <span className="block text-[2.65rem] leading-[1.02] min-[400px]:text-5xl sm:text-6xl sm:leading-[0.98] animate-slide-up-d1">
@@ -128,15 +206,15 @@ export default function VaultDashboard() {
     );
   }
 
-  // Vault values from UTxO
+  // ---------- Computed vault values ----------
   const vaultLovelace = vaultUtxo
     ? parseInt(
-        vaultUtxo.output.amount.find((a) => a.unit === "lovelace")?.quantity ?? "0"
+        vaultUtxo.output.amount.find((a) => a.unit === "lovelace")?.quantity ?? "0",
       )
     : 0;
-  const vaultAda = lovelaceToAda(vaultLovelace);
-  const vaultUsd = estimateVaultUsd(vaultLovelace);
-  const goalUsd = datum ? goalMicroUsdToUsd(datum.fields[0] as number) : 0;
+  const vaultAda = vaultLovelace / LOVELACE_PER_ADA;
+  const vaultUsd = adaPrice > 0 ? vaultAda * adaPrice : 0;
+  const goalUsd = parsedDatum ? parsedDatum.goalMicroUsd / MICRO_USD_PER_USD : 0;
   const goalMet = goalUsd > 0 && vaultUsd >= goalUsd;
 
   return (
@@ -159,41 +237,54 @@ export default function VaultDashboard() {
       </div>
 
       {/* No vault */}
-      {!vaultUtxo && (
+      {!vaultUtxo && !loading && (
         <CreateVaultPanel onCreated={fetchState} />
       )}
 
       {/* Vault found */}
-      {vaultUtxo && (
+      {vaultUtxo && parsedDatum && (
         <div className="bg-warm border border-clay-pale rounded-2xl p-6 shadow-sm space-y-5 animate-slide-up">
           {/* Header */}
           <div className="flex items-center gap-4">
             <PiggyIcon className={`w-14 h-14 ${goalMet ? "animate-wobble" : "animate-pulse-soft"}`} />
             <div className="flex-1">
               <h2 className="font-display text-xl text-bark leading-tight">Your Iron Pig</h2>
-              <p className="text-sm text-bark-light">
-                ₳ {vaultAda.toFixed(2)}{" "}
-                <span className="text-bark-light/60">≈ ${vaultUsd.toFixed(2)}</span>
-              </p>
             </div>
-            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-              goalMet
-                ? "bg-sage-pale text-sage"
-                : "bg-clay-pale text-clay"
-            }`}>
+            <span
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                goalMet ? "bg-sage-pale text-sage" : "bg-clay-pale text-clay"
+              }`}
+            >
               {goalMet ? "Unlocked" : "Locked"}
             </span>
           </div>
 
-          {/* Progress */}
-          {goalUsd > 0 && (
-            <ProgressBar value={vaultUsd} max={goalUsd} />
-          )}
+          {/* Vault stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-cream rounded-xl px-4 py-3">
+              <p className="text-[0.65rem] font-semibold text-bark-light/60 uppercase tracking-widest">Vault</p>
+              <p className="font-display text-xl text-bark mt-0.5">₳ {vaultAda.toFixed(2)}</p>
+              <p className="text-sm text-bark-light/70">
+                {adaPrice > 0 ? `≈ $${vaultUsd.toFixed(2)}` : "…"}
+              </p>
+            </div>
+            <div className="bg-cream rounded-xl px-4 py-3">
+              <p className="text-[0.65rem] font-semibold text-bark-light/60 uppercase tracking-widest">Goal</p>
+              <p className="font-display text-xl text-bark mt-0.5">${goalUsd.toFixed(2)}</p>
+              <p className="text-sm text-bark-light/70">
+                {adaPrice > 0 ? `≈ ₳ ${(goalUsd / adaPrice).toFixed(0)}` : "…"}
+              </p>
+            </div>
+          </div>
 
-          {/* Price note */}
-          <p className="text-xs text-bark-light/60 text-center">
-            Demo ADA/USD: ${DEMO_ADA_PRICE_USD} · Production uses the Pyth feed
-          </p>
+          {/* ADA price ticker */}
+          <div className="flex items-center justify-center gap-2 text-xs text-bark-light/60">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-sage animate-pulse-soft" />
+            ADA/USD: {adaPrice > 0 ? `$${adaPrice.toFixed(4)}` : "loading…"}
+          </div>
+
+          {/* Progress */}
+          {goalUsd > 0 && <ProgressBar value={vaultUsd} max={goalUsd} />}
 
           {/* Tabs */}
           <div className="flex bg-cream rounded-lg p-1 gap-1">
@@ -213,11 +304,7 @@ export default function VaultDashboard() {
           </div>
 
           {tab === "deposit" && datum && (
-            <DepositPanel
-              vaultUtxo={vaultUtxo}
-              datum={datum}
-              onDeposited={fetchState}
-            />
+            <DepositPanel vaultUtxo={vaultUtxo} datum={datum} onDeposited={fetchState} />
           )}
           {tab === "withdraw" && datum && (
             <WithdrawPanel

@@ -12,7 +12,6 @@ import {
   REDEEMER_DEPOSIT,
   REDEEMER_WITHDRAW,
   LOVELACE_PER_ADA,
-  MICRO_USD_PER_USD,
 } from "./contract";
 import {
   PYTH_STATE_TX_HASH,
@@ -23,6 +22,16 @@ import {
   pythRewardAddress,
   buildPythRedeemer,
 } from "./pyth";
+
+function getRequiredCollateralUtxo(collateral: UTxO[]): UTxO {
+  const collateralUtxo = collateral[0];
+  if (!collateralUtxo) {
+    throw new Error(
+      "No collateral UTxO found in wallet. Set collateral in your wallet and try again.",
+    );
+  }
+  return collateralUtxo;
+}
 
 // ---------------------------------------------------------------------------
 // 1. CREATE VAULT — pay ADA to script with inline IronPigDatum
@@ -68,6 +77,7 @@ export async function deposit(
   const changeAddress = addresses[0];
   const utxos = await wallet.getUtxos();
   const collateral = await wallet.getCollateral();
+  const collateralUtxo = getRequiredCollateralUtxo(collateral);
 
   const currentLovelace = parseInt(
     vaultUtxo.output.amount.find((a) => a.unit === "lovelace")?.quantity ?? "0",
@@ -77,7 +87,7 @@ export async function deposit(
     { unit: "lovelace", quantity: newLovelace },
   ];
 
-  const txBuilder = new MeshTxBuilder({ fetcher: provider, submitter: provider, evaluator: provider });
+  const txBuilder = new MeshTxBuilder({ fetcher: provider, submitter: provider });
   const unsignedTx = await txBuilder
     .spendingPlutusScriptV3()
     .txIn(
@@ -93,8 +103,8 @@ export async function deposit(
     .txOutInlineDatumValue(existingDatum)
     .changeAddress(changeAddress)
     .txInCollateral(
-      collateral[0].input.txHash,
-      collateral[0].input.outputIndex,
+      collateralUtxo.input.txHash,
+      collateralUtxo.input.outputIndex,
     )
     .selectUtxosFrom(utxos)
     .complete();
@@ -123,6 +133,7 @@ export async function withdraw(
   const changeAddress = addresses[0];
   const utxos = await wallet.getUtxos();
   const collateral = await wallet.getCollateral();
+  const collateralUtxo = getRequiredCollateralUtxo(collateral);
 
   const pythReward = pythRewardAddress(0);
   const pythRedeemer = buildPythRedeemer(signedUpdateHex);
@@ -131,7 +142,7 @@ export async function withdraw(
   const slotOffset = 4_924_800;
   const nowSlot = Math.floor((nowMs / 1000) - 1_596_491_091) + slotOffset;
 
-  const txBuilder = new MeshTxBuilder({ fetcher: provider, submitter: provider, evaluator: provider });
+  const txBuilder = new MeshTxBuilder({ fetcher: provider, submitter: provider });
   const unsignedTx = await txBuilder
     // Vault spend
     .spendingPlutusScriptV3()
@@ -163,8 +174,8 @@ export async function withdraw(
     .invalidHereafter(nowSlot + 60)
     .changeAddress(changeAddress)
     .txInCollateral(
-      collateral[0].input.txHash,
-      collateral[0].input.outputIndex,
+      collateralUtxo.input.txHash,
+      collateralUtxo.input.outputIndex,
     )
     .selectUtxosFrom(utxos)
     .complete();
@@ -178,14 +189,4 @@ export async function withdraw(
 // ---------------------------------------------------------------------------
 export function lovelaceToAda(lovelace: number): number {
   return lovelace / LOVELACE_PER_ADA;
-}
-
-export function goalMicroUsdToUsd(microUsd: number): number {
-  return microUsd / MICRO_USD_PER_USD;
-}
-
-export const DEMO_ADA_PRICE_USD = 0.45;
-
-export function estimateVaultUsd(lovelace: number): number {
-  return lovelaceToAda(lovelace) * DEMO_ADA_PRICE_USD;
 }

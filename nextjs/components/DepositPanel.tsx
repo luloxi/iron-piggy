@@ -12,6 +12,25 @@ interface Props {
   onDeposited: () => void;
 }
 
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+
+  if (error && typeof error === "object") {
+    const maybe = error as {
+      message?: unknown;
+      data?: { message?: unknown; error?: unknown };
+      status?: unknown;
+    };
+    if (typeof maybe.message === "string" && maybe.message.trim()) return maybe.message;
+    if (typeof maybe.data?.message === "string" && maybe.data.message.trim()) return maybe.data.message;
+    if (typeof maybe.data?.error === "string" && maybe.data.error.trim()) return maybe.data.error;
+    if (typeof maybe.status === "number") return `Request failed with status ${maybe.status}.`;
+  }
+
+  return "Deposit failed. Please try again and check wallet confirmation.";
+}
+
 export default function DepositPanel({ vaultUtxo, datum, onDeposited }: Props) {
   const { wallet } = useWallet();
   const [adaAmount, setAdaAmount] = useState("");
@@ -32,11 +51,15 @@ export default function DepositPanel({ vaultUtxo, datum, onDeposited }: Props) {
     try {
       const lovelace = Math.floor(ada * LOVELACE_PER_ADA);
       const hash = await deposit(wallet, vaultUtxo, datum, lovelace, 0);
+      if (!hash) {
+        throw new Error("Transaction was built but no tx hash was returned by wallet.");
+      }
       setTxHash(hash);
       setStatus("ok");
       setTimeout(onDeposited, 3000);
     } catch (e: unknown) {
-      setErrMsg(e instanceof Error ? e.message : String(e));
+      console.error("deposit error:", e);
+      setErrMsg(extractErrorMessage(e));
       setStatus("err");
     }
   }

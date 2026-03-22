@@ -63,6 +63,37 @@ export async function fetchSignedUpdate(): Promise<string> {
   }
 }
 
+export async function fetchAdaUsdPriceFromPyth(): Promise<number> {
+  const { PythLazerClient } = await import("@pythnetwork/pyth-lazer-sdk");
+  const client = await PythLazerClient.create({ token: PYTH_LAZER_TOKEN });
+  try {
+    const result = await client.getLatestPrice({
+      priceFeedIds: [ADA_USD_FEED_ID],
+      properties: ["price", "exponent"],
+      formats: ["solana"],
+      parsed: true,
+      channel: "fixed_rate@200ms",
+      jsonBinaryEncoding: "hex",
+    });
+
+    const feed = result.parsed?.priceFeeds?.[0];
+    const priceRaw = feed?.price;
+    const exponent = feed?.exponent;
+
+    if (typeof priceRaw !== "string" || typeof exponent !== "number") {
+      throw new Error("Pyth Lazer: parsed ADA/USD price is missing");
+    }
+
+    const normalized = Number(priceRaw) * Math.pow(10, exponent);
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+      throw new Error("Pyth Lazer: parsed ADA/USD price is invalid");
+    }
+    return normalized;
+  } finally {
+    client.shutdown();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Build Mesh-compatible redeemer for the Pyth 0-withdrawal.
 // The on-chain contract expects List<ByteArray> → Mesh `{ list: [...] }`.
