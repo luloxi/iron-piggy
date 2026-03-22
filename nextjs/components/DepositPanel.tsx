@@ -68,7 +68,7 @@ export default function DepositPanel({ vaultUtxo, datum, adaPrice, onDeposited }
       }
       setTxHash(hash);
       setStatus("ok");
-      setTimeout(onDeposited, 3000);
+      onDeposited();
     } catch (e: unknown) {
       console.error("deposit error:", e);
       setErrMsg(extractErrorMessage(e));

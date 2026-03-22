@@ -96,6 +96,12 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
   );
 }
 
+function getUtxoLovelace(utxo: UTxO): number {
+  return parseInt(
+    utxo.output.amount.find((amount) => amount.unit === "lovelace")?.quantity ?? "0",
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -145,10 +151,11 @@ export default function VaultDashboard() {
         if (!u.output.plutusData) continue;
         const result = tryParseDatum(u.output.plutusData);
         if (result && result.parsed.ownerVkh === ownerVkh) {
-          foundUtxo = u;
-          foundDatum = result.mesh;
-          foundParsed = result.parsed;
-          break;
+          if (!foundUtxo || getUtxoLovelace(u) > getUtxoLovelace(foundUtxo)) {
+            foundUtxo = u;
+            foundDatum = result.mesh;
+            foundParsed = result.parsed;
+          }
         }
       }
 
@@ -162,7 +169,7 @@ export default function VaultDashboard() {
     }
   }, [wallet, connected]);
 
-  const handleVaultCreated = useCallback(() => {
+  const triggerRefreshBurst = useCallback(() => {
     fetchState();
     const retryDelaysMs = [2_000, 5_000, 10_000];
     for (const delayMs of retryDelaysMs) {
@@ -171,6 +178,10 @@ export default function VaultDashboard() {
       }, delayMs);
     }
   }, [fetchState]);
+
+  const handleVaultCreated = useCallback(() => {
+    triggerRefreshBurst();
+  }, [triggerRefreshBurst]);
 
   useEffect(() => {
     fetchState();
@@ -328,7 +339,7 @@ export default function VaultDashboard() {
               vaultUtxo={vaultUtxo}
               datum={datum}
               adaPrice={adaPrice}
-              onDeposited={fetchState}
+              onDeposited={triggerRefreshBurst}
             />
           )}
           {tab === "withdraw" && datum && (
@@ -336,7 +347,7 @@ export default function VaultDashboard() {
               vaultUtxo={vaultUtxo}
               datum={datum}
               goalMet={goalMet}
-              onWithdrawn={fetchState}
+              onWithdrawn={triggerRefreshBurst}
             />
           )}
         </div>
