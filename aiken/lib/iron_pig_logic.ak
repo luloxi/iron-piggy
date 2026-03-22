@@ -11,11 +11,12 @@
 use aiken/collection/dict
 use aiken/collection/list
 use aiken/crypto.{VerificationKeyHash}
+use cardano/address.{Address}
 use cardano/assets.{
   AssetName, PolicyId, Value, ada_asset_name, ada_policy_id, flatten,
-  quantity_of, tokens,
+  merge, quantity_of, tokens, zero,
 }
-use cardano/transaction.{InlineDatum, Input}
+use cardano/transaction.{InlineDatum, Input, Output}
 
 /// Vault rules (set at lock time, preserved on every `Deposit`).
 pub type IronPigDatum {
@@ -43,6 +44,8 @@ pub type PythPriceEntry {
 
 pub type PythOracleDatum {
   prices: List<PythPriceEntry>,
+  /// POSIX milliseconds when this batch was published (staleness vs tx validity).
+  publish_time: Int,
 }
 
 /// 10^e for small non-negative e (sufficient for typical Pyth exponents).
@@ -116,6 +119,21 @@ pub fn value_covers(inner: Value, outer: Value) -> Bool {
           quantity_of(outer, p, n) >= q
         },
       )
+}
+
+/// Sum of `value` on all outputs paid to `recipient` (same address equality).
+pub fn value_paid_to(outputs: List<Output>, recipient: Address) -> Value {
+  list.foldr(
+    outputs,
+    zero,
+    fn(o, acc) {
+      if o.address == recipient {
+        merge(acc, o.value)
+      } else {
+        acc
+      }
+    },
+  )
 }
 
 /// First reference input that carries any token under `pyth_policy` and an inline oracle datum.
