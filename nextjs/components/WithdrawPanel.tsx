@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useWallet } from "@meshsdk/react";
 import { UTxO } from "@meshsdk/core";
 import { withdraw } from "@/lib/transactions";
+import { fetchSignedUpdate } from "@/lib/pyth";
 
 interface Props {
   vaultUtxo: UTxO;
@@ -11,10 +12,6 @@ interface Props {
   goalMet: boolean;
   onWithdrawn: () => void;
 }
-
-// Preprod Pyth placeholder UTxO — replace when Pyth is live on preprod
-const DEMO_PYTH_TX = "0000000000000000000000000000000000000000000000000000000000000001";
-const DEMO_PYTH_IDX = 0;
 
 export default function WithdrawPanel({ vaultUtxo, datum, goalMet, onWithdrawn }: Props) {
   const { wallet } = useWallet();
@@ -27,7 +24,8 @@ export default function WithdrawPanel({ vaultUtxo, datum, goalMet, onWithdrawn }
     setStatus("loading");
     setErrMsg("");
     try {
-      const hash = await withdraw(wallet, vaultUtxo, datum, DEMO_PYTH_TX, DEMO_PYTH_IDX);
+      const signedUpdate = await fetchSignedUpdate();
+      const hash = await withdraw(wallet, vaultUtxo, datum, signedUpdate);
       setTxHash(hash);
       setStatus("ok");
       setTimeout(onWithdrawn, 3500);

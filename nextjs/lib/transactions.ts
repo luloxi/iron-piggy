@@ -11,20 +11,26 @@ import {
   buildIronPigDatum,
   REDEEMER_DEPOSIT,
   REDEEMER_WITHDRAW,
-  PYTH_POLICY_ID,
-  ADA_USD_FEED_ID,
   LOVELACE_PER_ADA,
   MICRO_USD_PER_USD,
 } from "./contract";
+import {
+  PYTH_STATE_TX_HASH,
+  PYTH_STATE_TX_INDEX,
+  PYTH_SCRIPT_REF_TX_HASH,
+  PYTH_SCRIPT_REF_TX_INDEX,
+  PYTH_WITHDRAW_SCRIPT_HASH,
+  pythRewardAddress,
+  buildPythRedeemer,
+} from "./pyth";
 
 // ---------------------------------------------------------------------------
 // 1. CREATE VAULT — pay ADA to script with inline IronPigDatum
-//    No redeemer needed; script doesn't run on a simple payment.
 // ---------------------------------------------------------------------------
 export async function createVault(
   wallet: IWallet,
   goalUsd: number,
-  adaAmount: number
+  adaAmount: number,
 ): Promise<string> {
   const provider = getProvider();
   const addresses = await wallet.getUsedAddresses();
@@ -55,7 +61,7 @@ export async function deposit(
   vaultUtxo: UTxO,
   existingDatum: { alternative: number; fields: unknown[] },
   addLovelace: number,
-  addUsdcx: number
+  addUsdcx: number,
 ): Promise<string> {
   const provider = getProvider();
   const addresses = await wallet.getUsedAddresses();
@@ -64,7 +70,7 @@ export async function deposit(
   const collateral = await wallet.getCollateral();
 
   const currentLovelace = parseInt(
-    vaultUtxo.output.amount.find((a) => a.unit === "lovelace")?.quantity ?? "0"
+    vaultUtxo.output.amount.find((a) => a.unit === "lovelace")?.quantity ?? "0",
   );
   const newLovelace = (currentLovelace + addLovelace).toString();
   const newOutput: { unit: string; quantity: string }[] = [
@@ -78,7 +84,7 @@ export async function deposit(
       vaultUtxo.input.txHash,
       vaultUtxo.input.outputIndex,
       vaultUtxo.output.amount,
-      SCRIPT_ADDRESS
+      SCRIPT_ADDRESS,
     )
     .txInInlineDatumPresent()
     .txInRedeemerValue(REDEEMER_DEPOSIT, "Mesh", { mem: 3_500_000, steps: 1_000_000_000 })
@@ -88,7 +94,7 @@ export async function deposit(
     .changeAddress(changeAddress)
     .txInCollateral(
       collateral[0].input.txHash,
-      collateral[0].input.outputIndex
+      collateral[0].input.outputIndex,
     )
     .selectUtxosFrom(utxos)
     .complete();
@@ -98,16 +104,19 @@ export async function deposit(
 }
 
 // ---------------------------------------------------------------------------
-// 3. WITHDRAW — spend with Withdraw redeemer + Pyth reference input
-//    NOTE: Pyth reference UTxO below is a demo placeholder.
-//          Replace with the real preprod Pyth UTxO when available.
+// 3. WITHDRAW — Pyth Lazer verified price + vault spend in a single tx.
+//
+//    Shape:
+//      - Spend vault UTxO with Withdraw redeemer
+//      - Read-only ref input: Pyth State NFT
+//      - 0-withdrawal from Pyth withdraw script with [signedUpdate] redeemer
+//      - Short validity window aligned with oracle freshness
 // ---------------------------------------------------------------------------
 export async function withdraw(
   wallet: IWallet,
   vaultUtxo: UTxO,
   existingDatum: { alternative: number; fields: unknown[] },
-  pythRefTxHash: string,
-  pythRefTxIndex: number
+  signedUpdateHex: string,
 ): Promise<string> {
   const provider = getProvider();
   const addresses = await wallet.getUsedAddresses();
@@ -115,24 +124,47 @@ export async function withdraw(
   const utxos = await wallet.getUtxos();
   const collateral = await wallet.getCollateral();
 
+  const pythReward = pythRewardAddress(0);
+  const pythRedeemer = buildPythRedeemer(signedUpdateHex);
+
+  const nowMs = Date.now();
+  const slotOffset = 4_924_800;
+  const nowSlot = Math.floor((nowMs / 1000) - 1_596_491_091) + slotOffset;
+
   const txBuilder = new MeshTxBuilder({ fetcher: provider, submitter: provider, evaluator: provider });
   const unsignedTx = await txBuilder
+    // Vault spend
     .spendingPlutusScriptV3()
     .txIn(
       vaultUtxo.input.txHash,
       vaultUtxo.input.outputIndex,
       vaultUtxo.output.amount,
-      SCRIPT_ADDRESS
+      SCRIPT_ADDRESS,
     )
     .txInInlineDatumPresent()
-    .txInRedeemerValue(REDEEMER_WITHDRAW, "Mesh", { mem: 7_000_000, steps: 3_000_000_000 })
+    .txInRedeemerValue(REDEEMER_WITHDRAW, "Mesh", { mem: 14_000_000, steps: 5_000_000_000 })
     .txInScript(COMPILED_SCRIPT)
-    .readOnlyTxInReference(pythRefTxHash, pythRefTxIndex)
+    // Pyth state as read-only reference
+    .readOnlyTxInReference(PYTH_STATE_TX_HASH, PYTH_STATE_TX_INDEX)
+    // Pyth 0-withdrawal with signed update as redeemer
+    .withdrawalPlutusScriptV3()
+    .withdrawal(pythReward, "0")
+    .withdrawalTxInReference(
+      PYTH_SCRIPT_REF_TX_HASH,
+      PYTH_SCRIPT_REF_TX_INDEX,
+      undefined,
+      PYTH_WITHDRAW_SCRIPT_HASH,
+    )
+    .withdrawalRedeemerValue(pythRedeemer, "Mesh", { mem: 14_000_000, steps: 10_000_000_000 })
+    // Vault value to owner
     .txOut(changeAddress, vaultUtxo.output.amount)
+    // Validity window (~2 min)
+    .invalidBefore(nowSlot - 60)
+    .invalidHereafter(nowSlot + 60)
     .changeAddress(changeAddress)
     .txInCollateral(
       collateral[0].input.txHash,
-      collateral[0].input.outputIndex
+      collateral[0].input.outputIndex,
     )
     .selectUtxosFrom(utxos)
     .complete();
@@ -152,7 +184,6 @@ export function goalMicroUsdToUsd(microUsd: number): number {
   return microUsd / MICRO_USD_PER_USD;
 }
 
-// Dummy ADA price for demo display (would come from Pyth in production)
 export const DEMO_ADA_PRICE_USD = 0.45;
 
 export function estimateVaultUsd(lovelace: number): number {

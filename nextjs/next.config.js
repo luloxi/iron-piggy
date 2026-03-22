@@ -4,7 +4,16 @@ const fs = require("fs");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config, { isServer }) => {
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
+    // Wallet dependencies use top-level await + async WASM.
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      topLevelAwait: true,
+    };
+    config.output.environment = {
+      ...config.output.environment,
+      asyncFunction: true,
+    };
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,

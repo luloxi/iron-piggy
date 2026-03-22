@@ -1,6 +1,7 @@
+"use client";
+
 import dynamic from "next/dynamic";
 
-/** Server Component: evita que el bundle SSR importe Mesh/WASM y reduce chunks rotos en dev. */
 const App = dynamic(() => import("./App"), {
   ssr: false,
   loading: () => (
