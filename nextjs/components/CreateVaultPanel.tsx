@@ -21,7 +21,7 @@ export default function CreateVaultPanel({ onCreated }: Props) {
     const goal = parseFloat(goalUsd);
     const ada = parseFloat(adaAmount);
     if (!goal || !ada || ada < 2) {
-      setErrMsg("Mínimo 2 ADA para cubrir el depósito mínimo de Cardano.");
+      setErrMsg("At least 2 ADA is required to cover Cardano’s minimum UTxO deposit.");
       setStatus("err");
       return;
     }
@@ -40,15 +40,15 @@ export default function CreateVaultPanel({ onCreated }: Props) {
 
   return (
     <div className="bg-warm border border-clay-pale rounded-2xl p-6 shadow-sm animate-slide-up">
-      <h2 className="font-display text-xl text-bark mb-1">Crear tu Iron Pig</h2>
+      <h2 className="font-display text-xl text-bark mb-1">Open your Iron Pig</h2>
       <p className="text-bark-light text-sm mb-5">
-        Fija una meta en USD y deposita tus primeros ADA.
+        Set a USD goal and seed your vault with ADA.
       </p>
 
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-semibold text-bark-light uppercase tracking-widest mb-1">
-            Meta en USD
+            USD goal
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bark-light font-body">$</span>
@@ -65,7 +65,7 @@ export default function CreateVaultPanel({ onCreated }: Props) {
 
         <div>
           <label className="block text-xs font-semibold text-bark-light uppercase tracking-widest mb-1">
-            ADA inicial
+            Initial ADA
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bark-light font-body">₳</span>
@@ -86,14 +86,14 @@ export default function CreateVaultPanel({ onCreated }: Props) {
         )}
         {status === "ok" && (
           <div className="bg-sage-pale rounded-lg px-3 py-2 text-sage text-sm">
-            ✓ Vault creado —{" "}
+            ✓ Vault created —{" "}
             <a
               href={`https://preprod.cardanoscan.io/transaction/${txHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="underline font-semibold"
             >
-              ver tx
+              view tx
             </a>
           </div>
         )}
@@ -103,7 +103,7 @@ export default function CreateVaultPanel({ onCreated }: Props) {
           disabled={status === "loading"}
           className="w-full bg-clay hover:bg-clay-light disabled:opacity-60 transition-colors text-white font-semibold rounded-lg py-2.5 text-sm"
         >
-          {status === "loading" ? "Creando…" : "Crear bóveda"}
+          {status === "loading" ? "Creating…" : "Create vault"}
         </button>
       </div>
     </div>

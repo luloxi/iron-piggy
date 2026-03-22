@@ -26,14 +26,14 @@ export default function App() {
           <WalletConnect />
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-start px-4 py-10">
-          <div className="w-full max-w-md">
+        <main className="flex-1 flex flex-col items-center justify-start px-4 pt-10 pb-8 sm:pt-12">
+          <div className="w-full max-w-lg">
             <VaultDashboard />
           </div>
         </main>
 
         <footer className="text-center py-6 text-xs text-bark-light/50 border-t border-clay-pale/40">
-          Desplegado en Cardano testnet (preprod) · Precios vía{" "}
+          Running on Cardano preprod · Prices via{" "}
           <a
             href="https://pyth.network"
             target="_blank"

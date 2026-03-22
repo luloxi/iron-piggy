@@ -7,6 +7,7 @@ import { getProvider } from "@/lib/provider";
 import { SCRIPT_ADDRESS, MICRO_USD_PER_USD, LOVELACE_PER_ADA } from "@/lib/contract";
 import { lovelaceToAda, estimateVaultUsd, goalMicroUsdToUsd, DEMO_ADA_PRICE_USD } from "@/lib/transactions";
 import PiggyIcon from "./PiggyIcon";
+import WalletConnect from "./WalletConnect";
 import CreateVaultPanel from "./CreateVaultPanel";
 import DepositPanel from "./DepositPanel";
 import WithdrawPanel from "./WithdrawPanel";
@@ -18,7 +19,7 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
     <div className="w-full">
       <div className="flex justify-between text-xs text-bark-light mb-1.5">
         <span>${value.toFixed(2)}</span>
-        <span>${max.toFixed(2)} meta</span>
+        <span>${max.toFixed(2)} goal</span>
       </div>
       <div className="h-2 bg-clay-pale rounded-full overflow-hidden">
         <div
@@ -89,18 +90,38 @@ export default function VaultDashboard() {
 
   if (!connected) {
     return (
-      <div className="flex flex-col items-center gap-6 py-8 animate-fade-in text-center">
-        <p className="text-xs text-bark-light/70 tracking-wide uppercase font-semibold">
+      <div className="flex flex-col items-center gap-7 pt-1 pb-14 text-center sm:gap-8">
+        <p className="text-[0.6rem] text-bark-light/40 tracking-[0.28em] uppercase font-semibold animate-fade-in">
           Cardano · Pyth · Aiken
         </p>
-        <PiggyIcon className="w-32 h-32 animate-wobble" />
-        <div className="space-y-2 max-w-sm">
-          <h1 className="font-display text-3xl text-bark leading-tight">
-            Ahorra con reglas. <span className="text-clay">Sin excepciones.</span>
+
+        {/* Headline first — dominant visual anchor */}
+        <div className="w-full max-w-[22rem] space-y-4 px-1 sm:max-w-xl">
+          <h1 className="font-display font-semibold tracking-tight text-bark">
+            <span className="block text-[2.65rem] leading-[1.02] min-[400px]:text-5xl sm:text-6xl sm:leading-[0.98] animate-slide-up-d1">
+              Save with rules.
+            </span>
+            <span className="mt-2 block text-[2.65rem] leading-[1.02] min-[400px]:text-5xl sm:text-6xl sm:leading-[0.98] text-clay animate-slide-up-d2">
+              No exceptions.
+            </span>
           </h1>
-          <p className="text-bark-light text-sm leading-relaxed">
-            Bóveda en preprod: el contrato libera fondos cuando el valor en USD alcanza tu meta
-            (precio vía Pyth).
+          <p className="text-center text-sm leading-relaxed text-bark-light/75 max-w-[26rem] mx-auto sm:text-base animate-fade-in-d2">
+            A Cardano vault on preprod: your ADA stays locked until the vault hits your USD
+            target — priced by Pyth, enforced by the contract.
+          </p>
+        </div>
+
+        <div className="animate-float drop-shadow-md opacity-95">
+          <PiggyIcon className="h-28 w-28 sm:h-32 sm:w-32" />
+        </div>
+
+        <div className="flex w-full max-w-[20rem] flex-col items-stretch gap-3">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-bark-light/55 animate-fade-in-d3">
+            Connect to start
+          </p>
+          <WalletConnect primaryCTA />
+          <p className="text-[0.65rem] text-bark-light/40 leading-snug animate-fade-in-d3">
+            Non-custodial · On-chain rules · You can also connect from the top bar
           </p>
         </div>
       </div>
@@ -123,7 +144,7 @@ export default function VaultDashboard() {
       {/* Wallet balance bar */}
       <div className="flex items-center justify-between bg-warm border border-clay-pale rounded-2xl px-5 py-3">
         <div>
-          <p className="text-xs font-semibold text-bark-light uppercase tracking-widest">Tu wallet</p>
+          <p className="text-xs font-semibold text-bark-light uppercase tracking-widest">Wallet balance</p>
           <p className="font-display text-2xl text-bark">
             ₳ {walletAda !== null ? walletAda.toFixed(2) : "…"}
           </p>
@@ -133,7 +154,7 @@ export default function VaultDashboard() {
           disabled={loading}
           className="text-xs text-bark-light border border-clay-pale rounded-lg px-3 py-1.5 hover:bg-clay-pale transition-colors disabled:opacity-50"
         >
-          {loading ? "…" : "↺ Actualizar"}
+          {loading ? "…" : "↺ Refresh"}
         </button>
       </div>
 
@@ -149,7 +170,7 @@ export default function VaultDashboard() {
           <div className="flex items-center gap-4">
             <PiggyIcon className={`w-14 h-14 ${goalMet ? "animate-wobble" : "animate-pulse-soft"}`} />
             <div className="flex-1">
-              <h2 className="font-display text-xl text-bark leading-tight">Tu Iron Pig</h2>
+              <h2 className="font-display text-xl text-bark leading-tight">Your Iron Pig</h2>
               <p className="text-sm text-bark-light">
                 ₳ {vaultAda.toFixed(2)}{" "}
                 <span className="text-bark-light/60">≈ ${vaultUsd.toFixed(2)}</span>
@@ -160,7 +181,7 @@ export default function VaultDashboard() {
                 ? "bg-sage-pale text-sage"
                 : "bg-clay-pale text-clay"
             }`}>
-              {goalMet ? "Desbloqueado" : "Bloqueado"}
+              {goalMet ? "Unlocked" : "Locked"}
             </span>
           </div>
 
@@ -171,7 +192,7 @@ export default function VaultDashboard() {
 
           {/* Price note */}
           <p className="text-xs text-bark-light/60 text-center">
-            Precio ADA/USD demo: ${DEMO_ADA_PRICE_USD} · En producción usa el feed de Pyth
+            Demo ADA/USD: ${DEMO_ADA_PRICE_USD} · Production uses the Pyth feed
           </p>
 
           {/* Tabs */}
@@ -186,7 +207,7 @@ export default function VaultDashboard() {
                     : "text-bark-light hover:text-bark"
                 }`}
               >
-                {t === "deposit" ? "Depositar" : "Retirar"}
+                {t === "deposit" ? "Deposit" : "Withdraw"}
               </button>
             ))}
           </div>
