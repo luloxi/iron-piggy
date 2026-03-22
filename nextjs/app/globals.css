@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-display: "Lora", Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background-color: #FDF6EC;
+}
+
+/* Override MeshSDK wallet button styles */
+mesh-wallet-button, [data-mesh-wallet] {
+  font-family: var(--font-body) !important;
+}

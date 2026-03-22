@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-PARAM_HEX_FILE="${PARAM_HEX_FILE:-$ROOT/params/stable_assets.empty.hex}"
+PARAM_HEX_FILE="${PARAM_HEX_FILE:-$ROOT/../params/stable_assets.empty.hex}"
 # Strip whitespace / comments
 HEX="$(tr -d '[:space:]' < "$PARAM_HEX_FILE" | sed 's/#.*//')"
 
