@@ -89,16 +89,20 @@ export default function VaultDashboard() {
 
   if (!connected) {
     return (
-      <div className="flex flex-col items-center gap-6 py-12 animate-fade-in">
+      <div className="flex flex-col items-center gap-6 py-8 animate-fade-in text-center">
+        <p className="text-xs text-bark-light/70 tracking-wide uppercase font-semibold">
+          Cardano · Pyth · Aiken
+        </p>
         <PiggyIcon className="w-32 h-32 animate-wobble" />
-        <div className="text-center">
-          <h1 className="font-display text-3xl text-bark mb-2">Iron Pig</h1>
-          <p className="text-bark-light max-w-xs text-sm leading-relaxed">
-            Una bóveda de ahorro en Cardano. Tus fondos se liberan cuando
-            el valor en USD —según Pyth— alcanza tu meta.
+        <div className="space-y-2 max-w-sm">
+          <h1 className="font-display text-3xl text-bark leading-tight">
+            Ahorra con reglas. <span className="text-clay">Sin excepciones.</span>
+          </h1>
+          <p className="text-bark-light text-sm leading-relaxed">
+            Bóveda en preprod: el contrato libera fondos cuando el valor en USD alcanza tu meta
+            (precio vía Pyth).
           </p>
         </div>
-        <p className="text-sm text-bark-light/60 mt-2">Conecta tu wallet para empezar</p>
       </div>
     );
   }

@@ -28,15 +28,6 @@ export default function App() {
 
         <main className="flex-1 flex flex-col items-center justify-start px-4 py-10">
           <div className="w-full max-w-md">
-            <div className="text-center mb-8">
-              <p className="text-sm text-bark-light/70 tracking-wide uppercase font-semibold">
-                Cardano · Pyth · Aiken
-              </p>
-              <h1 className="font-display text-4xl text-bark mt-1 leading-tight">
-                Ahorra con reglas.<br />
-                <span className="text-clay">Sin excepciones.</span>
-              </h1>
-            </div>
             <VaultDashboard />
           </div>
         </main>
