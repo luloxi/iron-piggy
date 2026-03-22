@@ -324,7 +324,12 @@ export default function VaultDashboard() {
           </div>
 
           {tab === "deposit" && datum && (
-            <DepositPanel vaultUtxo={vaultUtxo} datum={datum} onDeposited={fetchState} />
+            <DepositPanel
+              vaultUtxo={vaultUtxo}
+              datum={datum}
+              adaPrice={adaPrice}
+              onDeposited={fetchState}
+            />
           )}
           {tab === "withdraw" && datum && (
             <WithdrawPanel

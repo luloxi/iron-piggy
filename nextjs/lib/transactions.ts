@@ -33,6 +33,14 @@ function getRequiredCollateralUtxo(collateral: UTxO[]): UTxO {
   return collateralUtxo;
 }
 
+async function signTxWithFallback(wallet: IWallet, unsignedTx: string): Promise<string> {
+  try {
+    return await wallet.signTx(unsignedTx, true);
+  } catch {
+    return await wallet.signTx(unsignedTx);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 1. CREATE VAULT — pay ADA to script with inline IronPigDatum
 // ---------------------------------------------------------------------------
@@ -58,7 +66,7 @@ export async function createVault(
     .selectUtxosFrom(utxos)
     .complete();
 
-  const signedTx = await wallet.signTx(unsignedTx);
+  const signedTx = await signTxWithFallback(wallet, unsignedTx);
   return wallet.submitTx(signedTx);
 }
 
@@ -109,7 +117,7 @@ export async function deposit(
     .selectUtxosFrom(utxos)
     .complete();
 
-  const signedTx = await wallet.signTx(unsignedTx);
+  const signedTx = await signTxWithFallback(wallet, unsignedTx);
   return wallet.submitTx(signedTx);
 }
 
@@ -180,7 +188,7 @@ export async function withdraw(
     .selectUtxosFrom(utxos)
     .complete();
 
-  const signedTx = await wallet.signTx(unsignedTx, true);
+  const signedTx = await signTxWithFallback(wallet, unsignedTx);
   return wallet.submitTx(signedTx);
 }
 

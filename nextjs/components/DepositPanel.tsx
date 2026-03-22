@@ -9,6 +9,7 @@ import { LOVELACE_PER_ADA } from "@/lib/contract";
 interface Props {
   vaultUtxo: UTxO;
   datum: { alternative: number; fields: unknown[] };
+  adaPrice: number;
   onDeposited: () => void;
 }
 
@@ -19,10 +20,12 @@ function extractErrorMessage(error: unknown): string {
   if (error && typeof error === "object") {
     const maybe = error as {
       message?: unknown;
+      info?: unknown;
       data?: { message?: unknown; error?: unknown };
       status?: unknown;
     };
     if (typeof maybe.message === "string" && maybe.message.trim()) return maybe.message;
+    if (typeof maybe.info === "string" && maybe.info.trim()) return maybe.info;
     if (typeof maybe.data?.message === "string" && maybe.data.message.trim()) return maybe.data.message;
     if (typeof maybe.data?.error === "string" && maybe.data.error.trim()) return maybe.data.error;
     if (typeof maybe.status === "number") return `Request failed with status ${maybe.status}.`;
@@ -31,21 +34,30 @@ function extractErrorMessage(error: unknown): string {
   return "Deposit failed. Please try again and check wallet confirmation.";
 }
 
-export default function DepositPanel({ vaultUtxo, datum, onDeposited }: Props) {
+export default function DepositPanel({ vaultUtxo, datum, adaPrice, onDeposited }: Props) {
   const { wallet } = useWallet();
-  const [adaAmount, setAdaAmount] = useState("");
+  const [amount, setAmount] = useState("");
+  const [unit, setUnit] = useState<"ada" | "usd">("ada");
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "err">("idle");
   const [txHash, setTxHash] = useState("");
   const [errMsg, setErrMsg] = useState("");
 
   async function handleDeposit() {
     if (!wallet) return;
-    const ada = parseFloat(adaAmount);
-    if (!ada || ada <= 0) {
+    const enteredAmount = parseFloat(amount);
+    if (!enteredAmount || enteredAmount <= 0) {
       setStatus("err");
-      setErrMsg("Enter a valid ADA amount.");
+      setErrMsg("Enter a valid amount.");
       return;
     }
+
+    if (unit === "usd" && adaPrice <= 0) {
+      setStatus("err");
+      setErrMsg("ADA/USD price is not available yet. Please try again in a moment.");
+      return;
+    }
+
+    const ada = unit === "ada" ? enteredAmount : enteredAmount / adaPrice;
     setStatus("loading");
     setErrMsg("");
     try {
@@ -70,18 +82,49 @@ export default function DepositPanel({ vaultUtxo, datum, onDeposited }: Props) {
         <label className="block text-xs font-semibold text-bark-light uppercase tracking-widest mb-1">
           Amount to add
         </label>
+        <div className="mb-2 flex w-full rounded-lg bg-cream p-1 gap-1">
+          <button
+            type="button"
+            onClick={() => setUnit("ada")}
+            className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-colors ${
+              unit === "ada" ? "bg-white text-bark shadow-sm" : "text-bark-light hover:text-bark"
+            }`}
+          >
+            ADA
+          </button>
+          <button
+            type="button"
+            onClick={() => setUnit("usd")}
+            className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-colors ${
+              unit === "usd" ? "bg-white text-bark shadow-sm" : "text-bark-light hover:text-bark"
+            }`}
+          >
+            USD
+          </button>
+        </div>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bark-light">₳</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bark-light">
+            {unit === "ada" ? "₳" : "$"}
+          </span>
           <input
             type="number"
-            min="1"
-            step="1"
-            placeholder="5"
-            value={adaAmount}
-            onChange={(e) => setAdaAmount(e.target.value)}
+            min="0.01"
+            step="0.01"
+            placeholder={unit === "ada" ? "5" : "1"}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
             className="w-full bg-cream border border-clay-pale rounded-lg pl-7 pr-4 py-2.5 text-bark font-body focus:outline-none focus:ring-2 focus:ring-clay"
           />
         </div>
+        <p className="mt-1 text-xs text-bark-light/70">
+          {unit === "ada"
+            ? (adaPrice > 0 && amount
+              ? `≈ $${(parseFloat(amount || "0") * adaPrice).toFixed(2)}`
+              : "Add ADA directly to your vault.")
+            : (adaPrice > 0 && amount
+              ? `≈ ₳ ${(parseFloat(amount || "0") / adaPrice).toFixed(2)}`
+              : "USD amount converts to ADA with Pyth price.")}
+        </p>
       </div>
 
       {status === "err" && (
