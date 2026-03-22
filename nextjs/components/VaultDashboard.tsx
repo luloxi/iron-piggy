@@ -224,6 +224,7 @@ export default function VaultDashboard() {
     : 0;
   const vaultAda = vaultLovelace / LOVELACE_PER_ADA;
   const vaultUsd = adaPrice > 0 ? vaultAda * adaPrice : 0;
+  const walletUsd = walletAda !== null && adaPrice > 0 ? walletAda * adaPrice : null;
   const goalUsd = parsedDatum ? parsedDatum.goalMicroUsd / MICRO_USD_PER_USD : 0;
   const goalMet = goalUsd > 0 && vaultUsd >= goalUsd;
 
@@ -231,11 +232,16 @@ export default function VaultDashboard() {
     <div className="w-full max-w-md mx-auto space-y-4 animate-fade-in">
       {/* Wallet balance bar */}
       <div className="flex items-center justify-between bg-warm border border-clay-pale rounded-2xl px-5 py-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold text-bark-light uppercase tracking-widest">Wallet balance</p>
-          <p className="font-display text-2xl text-bark">
-            ₳ {walletAda !== null ? walletAda.toFixed(2) : "…"}
-          </p>
+          <div className="mt-0.5 flex items-end gap-2">
+            <p className="font-display text-2xl text-bark">
+              ${walletUsd !== null ? walletUsd.toFixed(2) : "…"}
+            </p>
+            <p className="text-sm text-bark-light/70">
+              {walletAda !== null ? `≈ ₳ ${walletAda.toFixed(2)}` : "…"}
+            </p>
+          </div>
         </div>
         <button
           onClick={fetchState}
@@ -273,17 +279,21 @@ export default function VaultDashboard() {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-cream rounded-xl px-4 py-3">
               <p className="text-[0.65rem] font-semibold text-bark-light/60 uppercase tracking-widest">Vault</p>
-              <p className="font-display text-xl text-bark mt-0.5">₳ {vaultAda.toFixed(2)}</p>
-              <p className="text-sm text-bark-light/70">
-                {adaPrice > 0 ? `≈ $${vaultUsd.toFixed(2)}` : "…"}
-              </p>
+              <div className="mt-0.5 flex items-end gap-2">
+                <p className="font-display text-2xl text-bark">
+                  {adaPrice > 0 ? `$${vaultUsd.toFixed(2)}` : "…"}
+                </p>
+                <p className="text-sm text-bark-light/70">≈ ₳ {vaultAda.toFixed(2)}</p>
+              </div>
             </div>
             <div className="bg-cream rounded-xl px-4 py-3">
               <p className="text-[0.65rem] font-semibold text-bark-light/60 uppercase tracking-widest">Goal</p>
-              <p className="font-display text-xl text-bark mt-0.5">${goalUsd.toFixed(2)}</p>
-              <p className="text-sm text-bark-light/70">
-                {adaPrice > 0 ? `≈ ₳ ${(goalUsd / adaPrice).toFixed(0)}` : "…"}
-              </p>
+              <div className="mt-0.5 flex items-end gap-2">
+                <p className="font-display text-2xl text-bark">${goalUsd.toFixed(2)}</p>
+                <p className="text-sm text-bark-light/70">
+                  {adaPrice > 0 ? `≈ ₳ ${(goalUsd / adaPrice).toFixed(0)}` : "…"}
+                </p>
+              </div>
             </div>
           </div>
 

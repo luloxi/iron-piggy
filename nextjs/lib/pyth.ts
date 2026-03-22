@@ -30,6 +30,14 @@ export const PYTH_LAZER_TOKEN =
 
 export const ADA_USD_FEED_ID = 16;
 
+function safeShutdown(client: { shutdown: () => void }) {
+  try {
+    client.shutdown();
+  } catch {
+    // Some one-shot clients have no websocket pool; ignore shutdown failure.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Reward address for the Pyth withdraw script (preprod = network 0).
 // ---------------------------------------------------------------------------
@@ -59,7 +67,7 @@ export async function fetchSignedUpdate(): Promise<string> {
     }
     return result.solana.data;
   } finally {
-    client.shutdown();
+    safeShutdown(client);
   }
 }
 
@@ -90,7 +98,7 @@ export async function fetchAdaUsdPriceFromPyth(): Promise<number> {
     }
     return normalized;
   } finally {
-    client.shutdown();
+    safeShutdown(client);
   }
 }
 
